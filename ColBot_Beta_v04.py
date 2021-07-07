@@ -1,5 +1,5 @@
 #cd C:\Users\emman\OneDrive - AECFORWARD LTD\2021 - Research\2021_06_15 ColBot\ColumnScraping
-#streamlit run ColBot_Streamlit_v03.py
+#streamlit run ColBot_Streamlit_v04.py
 #? how to relaunch quickly?
 
 # Importing modules (to be limited in the future)
@@ -17,6 +17,9 @@ import os
 cwd = os.getcwd()
 image_dir = os.path.join(cwd,"images")
 
+#Main theme (in addition to config.toml)
+img = Image.open(os.path.join(image_dir,"Favicon"+".png"))
+st.set_page_config(page_title="AECforward ColBot", page_icon=img, layout='centered', initial_sidebar_state='expanded')
 
 # User Interface
 cursorLy = st.sidebar.slider("Ly        Column Buckling length (mm)", 3000, 5000, value=4000, step=20)
@@ -35,9 +38,10 @@ objective_plot = st.sidebar.selectbox( 'Plot for:', objectives )
 # Presentation
 cols = st.beta_columns(2)
 img = Image.open(os.path.join(image_dir,"AECforward-Bot"+".png"))
-cols[0].image(img, width=  150)
+cols[0].image(img, width=  100)
 cols[1].title("ColBot")
 cols[1].text("Beta - by AECforward.ai")
+cols[1].text("This is just a prototype")
 #st.subheader("Steel Columns Predictions for size, cost or embodied carbon")
 
 # Building case - Including scaling
@@ -75,21 +79,32 @@ solutions.reset_index(drop=True, inplace=True)
 
 #DISPLAY OPTIONS
 st.subheader("Generative design")
-st.text("For different objectives, the best predicted sections are:")
+st.text("The best predicted columns size with the lowest cost/size/embodied carbon A1-A3 are:")
 st.text("")
 cols = st.beta_columns(len(objectives))
-ColumnsToDisplay = [ "objective", "Section", "grade"]
+ColumnsToDisplay = [  "Section", "grade"]
 for i in range(len(objectives)):
-    text = "Option " + str(i) + " :"
-    cols[i].text(text)
+    
+    objective = solutions.loc[i, "objective"]
+    #text = "Option " + str(i) + " :"
+    cols[i].subheader(objective)
+    #display a bar
+    try:
+        img = Image.open(os.path.join(image_dir,"bar_"+objective+".png"))
+        cols[i].image(img, width=  200, use_column_width = False )  #use_column_width = True
+    except:
+        pass
+
     for column in ColumnsToDisplay:
         cols[i].text(solutions.loc[i,column])
     imgname = solutions.loc[i,"Section"]
     try:
         img = Image.open(os.path.join(image_dir,imgname+".png"))
-        cols[i].image(img, width=  300, use_column_width = True )  #use_column_width = True
+        cols[i].image(img, width=  200, use_column_width = False )  #use_column_width = True
     except:
         pass
+
+
 
 #OPTIONS BAR PLOTS
 st.text("")
@@ -168,6 +183,8 @@ if plot_checkbox:
 for i in range(0,20):
     st.write("")
 
+if st.button("What are the assumptions?", help="If you want to know more"):
+    st.text("Calcs, costs, grade, histar....")
 
 
 
