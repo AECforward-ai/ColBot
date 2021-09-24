@@ -12,8 +12,8 @@ from PIL import Image
 import os
 import Column_modules    #module
 #import ColBot_json  
-
-
+#import pickle5 as pickle
+import pickle
 
 #get working directory
 cwd = os.getcwd()
@@ -98,7 +98,9 @@ def ReadXlsDropHeader1(FileName):
     return _df
 @st.cache
 def ReadPicke(FileName):
-    _df = pd.read_pickle(FileName)
+    #_df = pd.read_pickle(FileName)
+    with open(FileName, 'rb') as handle:
+        _df = pickle.load(handle)
     return _df
 
 
