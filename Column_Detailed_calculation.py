@@ -602,12 +602,12 @@ class ColumnUtilisation:
             β = max(1, 5 * n) 
             p("β = ", "%.2f"% β)
 
+            URCS_1 = 99999
+            URCS_2 = 99999
             if (MyEd_MNyRd >=0) and (MzEd_MNzRd >=0) and (MNyRd !=0) and (MNyRd != 0):
                 URCS_1 = math.pow(abs(My1) / MNyRd,α) + math.pow(abs(Mz1) / MNzRd, β)
                 URCS_2 = math.pow(abs(My2) / MNyRd,α) + math.pow(abs(Mz2) / MNzRd, β)              
-            else:
-                URCS_1 = 999
-                URCS_2 = 999
+ 
 
             p("URCS_1 = ","%.3f"% URCS_1, "Section utilisation at end 1 - Axial and bending", InSummary = True)
             p("URCS_2 = ","%.3f"% URCS_2, "Section utilisation at end 2 - Axial and bending", InSummary = True)
