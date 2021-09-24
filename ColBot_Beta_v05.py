@@ -13,17 +13,21 @@ import os
 import Column_modules    #module
 #import ColBot_json  
 
-#Constants and file names
-objectives_list = [  "weight_S355" , "cost", "size" , "carbon"]
-steel_sections_file = 'steel_sections.xlsx'   #list of sections
-parameters_file = 'tedds_column_parameters.xlsx'
-steel_cost_file = 'steel_cost.xlsx'
-sections_list_file = 'sections_list.xlsx'   #list of sections with cost carbon etc
-solutions_pickle_file = 'Xy826k_short.pickle'
+
 
 #get working directory
 cwd = os.getcwd()
 image_dir = os.path.join(cwd,"images")
+
+#Constants and file names
+objectives_list = [  "weight_S355" , "cost", "size" , "carbon"]
+steel_sections_file =os.path.join(cwd, 'steel_sections.xlsx')   #list of sections
+parameters_file = os.path.join(cwd, 'tedds_column_parameters.xlsx')
+steel_cost_file = os.path.join(cwd,'steel_cost.xlsx')
+steel_yield_file = os.path.join(cwd,'steel_yield.xlsx')
+steel_carbon_file= os.path.join(cwd,'steel_carbon.xlsx')
+sections_list_file =  os.path.join(cwd, 'sections_list.xlsx')   #list of sections with cost carbon etc
+solutions_pickle_file = os.path.join(cwd, 'Xy826k_short.pickle')
 
 #-------------------------------------------------------------------------------------------------------
 #--------------------------USER INTERFACES--------------------------------------------------------------
@@ -105,9 +109,9 @@ parameters = ReadXls(parameters_file )
 #Full calculation is launched if special costs are entered 
 if cost_checkbox:     
     df_sections = ReadXlsWithHeader(steel_sections_file )
-    df_yield = ReadXls('steel_yield.xlsx')
+    df_yield = ReadXls(steel_yield_file)
     #
-    df_carbon = ReadXls('steel_carbon.xlsx')
+    df_carbon = ReadXls(steel_carbon_file)
     df_cost = Column_modules.built_cost(Basis, S355M_plus,S460J2_plus,S460M_plus, Weight_550to700,Weight_700to1400)
     sections_withheader = Column_modules.Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon)
     sections = sections_withheader.droplevel(1, axis=1)
