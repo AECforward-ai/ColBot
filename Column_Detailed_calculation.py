@@ -840,6 +840,7 @@ class ColumnUtilisation:
         βr = 0.75
         p("βr = ","%.3f"% βr,"    Correction factor for rolled sections")
 
+        curve_LT=""
         if h/b<=2:
             curve_LT = "b"
         if h/b > 2:
@@ -886,6 +887,8 @@ class ColumnUtilisation:
 
 
         NRk = A * fy 
+        MyRk = 0
+        MzRk = 0
         if classSection==1 or classSection==2:
             p("Class 1 or 2 cross-sections. W=Wpl")
             MyRk = Wply * fy
@@ -927,6 +930,10 @@ class ColumnUtilisation:
         p("CmLT = ","%.3f"% CmLT, "    Moment factor - LTB")
 
         p("Using Method 2 of Annex B")
+        kyy=99999
+        kyz=99999
+        kzz=99999
+        kyz=99999
         if classSection==1 or classSection==2:
             p("Class 1 or 2 cross-sections factors")
             kyy = Cmy*( 1 + min(0.8, λy-0.2) * N/(Χy*NRk/γM1) )
