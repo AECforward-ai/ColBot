@@ -294,7 +294,9 @@ class ColumnUtilisation:
         p("Stress bottom = ", "%.1f"% StressBot, " MPa")
         p("ψw = ","%.1f"% ψw, " Stress Ratio for class 3 sections")
 
-        limit1w=0
+        Limit1w=0
+        Limit2w=0
+        Limit3w=0
         if α>0.5 :  
             Limit1w = (396 * ϵ) / (13 * α - 1)
             Limit2w = (456 * ϵ) / (13 * α - 1)
