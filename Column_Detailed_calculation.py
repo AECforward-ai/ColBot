@@ -457,6 +457,7 @@ class ColumnUtilisation:
         p("MyEd=", "%.1f"% MyEd," N   Design bending moment")
 
         p("The section is class = ", classSection)
+        Wy=0
         if classSection<=2:
             Wy = Wply
             p("Wy = Wply = ", "%.1f"% Wply, "mm3   Section modulus")
@@ -491,6 +492,7 @@ class ColumnUtilisation:
         p("Wplz=", "%.1f"% Wplz, "mm3   Section modulus")
 
         p("The section is class = ", classSection)
+        Wz=0
         if classSection<=2:
             Wz = Wplz
             p("Wz = Wplz = ", "%.1f"% Wplz, "mm3   Section modulus")
