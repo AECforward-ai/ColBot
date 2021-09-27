@@ -74,7 +74,7 @@ if plot_checkbox:
     objective_plot = st.sidebar.selectbox( 'Plot for:', objectives_list, index=3 )
 
 # Presentation
-cols = st.columns(2)
+cols = st.beta_columns(2)
 img = Image.open(os.path.join(image_dir,"AECforward-Bot"+".png"))
 cols[0].image(img, width=  100)
 cols[1].title("ColBot")
@@ -135,7 +135,7 @@ else:
 st.subheader("Generative design")
 st.markdown("The best predicted columns size with the lowest cost/size/embodied carbon A1-A3 are:")
 st.text("")
-cols = st.columns(len(objectives))
+cols = st.beta_columns(len(objectives))
 ColumnsToDisplay = [  "Section", "grade"]
 for i in range(len(objectives)):
     
@@ -185,7 +185,7 @@ for row in range(len(solutions)):
     solutions.at[row, "color"] = color.at[0,"color"]
 
 
-cols = st.columns(len(properties))
+cols = st.beta_columns(len(properties))
 for i in range(len(properties)):
     property = properties[i]
     fig = plt.figure()
