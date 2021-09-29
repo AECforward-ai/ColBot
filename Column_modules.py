@@ -128,7 +128,7 @@ print(Optimisation_df)
 #---------------------------------------------------------------------------------------
 #-------------GENERATE FULL LIST OF COLUMN SECTIONS WITH PROPERTIES----------------------
 
-def Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon):
+def Generate_Sections_List(df_sections, df_yield, df_ultimate, df_cost, df_carbon):
     verbose = False
     
     if verbose:
@@ -136,6 +136,8 @@ def Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon):
         display(df_sections.head(3), df_sections.tail(2))
         print("Steel yield")
         display(df_yield)
+        print("Steel ultimate")
+        display(df_ultimate)
         print("Steel cost")
         display(df_cost)
         print("Steel embodied carbon")
@@ -146,6 +148,8 @@ def Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon):
     sections_list["grade"]=All_grades[0]
     sections_list[("fy","MPa")]=0
     sections_list[("fyPa","Pa")]=0
+    sections_list[("fu","MPa")]=0
+    sections_list[("fuPa","Pa")]=0
     sections_list[("cost","pounds/m")]=0
     sections_list[("carbon","kg/m")]=0
 
@@ -173,6 +177,14 @@ def Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon):
             if _thickness <= _ThisYield.columns[j]:
                 sections_list.at[i,("fy","MPa")] = _ThisYield.iloc[0,j]
                 sections_list.at[i,("fyPa","Pa")] = _ThisYield.iloc[0,j]*1000000
+                break
+
+        #setting the correct ultimate tensile strength
+        _ThisUltimate=df_ultimate[df_ultimate['grade']==_grade]
+        for j in range(1,_ThisUltimate.shape[1]):
+            if _thickness <= _ThisUltimate.columns[j]:
+                sections_list.at[i,("fu","MPa")] = _ThisUltimate.iloc[0,j]
+                sections_list.at[i,("fuPa","Pa")] = _ThisUltimate.iloc[0,j]*1000000
                 break
 
         #setting the correct cost / m
@@ -219,9 +231,10 @@ def Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon):
 print("-----------------------module SECTION LIST WITH ALL PROPERTIES--------------")
 df_sections = pd.read_excel('steel_sections.xlsx', header=[0,1])
 df_yield = pd.read_excel('steel_yield.xlsx')
+df_ultimate= pd.read_excel('steel_ultimate.xlsx')
 df_cost = pd.read_excel('steel_cost.xlsx')
 df_carbon = pd.read_excel('steel_carbon.xlsx')
-sections = Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon)
+sections = Generate_Sections_List(df_sections, df_yield, df_ultimate, df_cost, df_carbon)
 print(sections)
 
 

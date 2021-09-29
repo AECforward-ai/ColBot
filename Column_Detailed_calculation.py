@@ -96,7 +96,7 @@ class ColumnUtilisation:
             IT= 558.0E4 #mm4       torsional constant
 
             fy = 440 #N/mm2 #Yield strength
-
+            fu = 550 #N/mm2 #Yield strength
 
             ### Column geometry and loads
             Ly = 4000 #mm Buckling length for flexural buckling - Major axis
@@ -151,6 +151,7 @@ class ColumnUtilisation:
                 IT = _df.at[0,("IT","mm4")]       
                 #yield
                 fy = _df.at[0,("fy","MPa")]
+                fu = _df.at[0,("fu","MPa")]
                 p("Dataframe inputs : OK")
             except:
                 p("FAIL - Could not get the properties")
@@ -204,6 +205,7 @@ class ColumnUtilisation:
         p_title("Section")
         p("Section = ", Section, InSummary=True)
         p("fy =", fy  ,"MPa   Yield strength", InSummary=True)
+        p("fu =", fu  ,"MPa   Ultimate Tensile strength", InSummary=True)
         p("h =", h,"mm    Section Depth")
         p("b =", b,"mm    Section Breath")
         p("tf =", tf,"mm    Flange thickness")
@@ -223,7 +225,7 @@ class ColumnUtilisation:
         p("Ly =", "%.0f"% Ly  ,"mm    Buckling length for flexural buckling - Major axis",  InSummary=True)
         p("Lz =", "%.0f"% Lz  ,"mm    Buckling length for flexural buckling - Minor axis ",  InSummary=True)
         p("Lcr_LT =", "%.0f"% Lcr_LT  ,"mm    Simplied assumptions for Lateral torsional buckling Lcr_lt=Lz")
-        p("N =", "%.0f"% N  ,"N    Axial load +Compression", InSummary=True)
+        p("N =", "%.0f"% N  ,"N    Axial load +Compression -tension", InSummary=True)
         p("My1 =", "%.0f"% My1  ,"Nmm    Major axis moment at end 1 - Bottom", InSummary=True)
         p("My2 =", "%.0f"% My2  ,"Nmm    Major axis moment at end 2 - Top")
         p("Mz1 =", "%.0f"% Mz1  ,"Nmm    Minor axis moment at end 1 - Bottom", InSummary=True)
@@ -233,31 +235,19 @@ class ColumnUtilisation:
 
 
         # #### constants
-
-        # In[27]:
-
-
         #Partial factors - Section 6.1
         γM0 = 1 #Resistance of cross-sections;
         γM1 = 1  #Resistance of members to instability;
         γM2 = 1.1  #Resistance of cross-sections in tension to fracture;
-
         E = 210000 # N/mm2   #Modulus of elasticity
         ν = 0.3   #Poisson’s ratio
         G = E / (2*(1 + ν))   
         p("G = ","%.0f" %G," MPa     Shear modulus")
 
 
-        # ### HAND MODIFICATIONS !!
-
-        # In[28]:
-#       fy = 460 #N/mm2 #Yield strength
-
-
         # ## CALCULATIONS
 
-        # ### Section classification
-
+        # ### Section classification------------------------------------------------
         # #### Web section classification (Table 5.2)
 
         # In[29]:
@@ -274,7 +264,10 @@ class ColumnUtilisation:
         ratiow = cw / tw  #Ratio of c/t;
         p("c/t = ","%.1f"%ratiow, "  ratio")
 
-        lw = min(N / (fy * tw), cw)
+        N_CompOnly = max(0, N)
+        if N<0:
+            p("Tension case: benefice of tension is ignored and N=0 considered for classification")
+        lw = min(N_CompOnly / (fy * tw), cw)
         p("lw = ","%.1f"% lw," mm  Length of web taken by axial load ")
 
 
@@ -284,8 +277,8 @@ class ColumnUtilisation:
         #Class 3 webs
         #ψw = 2*N / (A*fy) - 1   # Calculation in Tedds for class 3 web is using ψw = 2*N/A*fy-1 . Replaced but stress calcs
         MaxMy = max(abs(My1), abs(My2))
-        StressTop = +N/A + MaxMy/Wely
-        StressBot = +N/A - MaxMy/Wely
+        StressTop = (N_CompOnly / A) +  MaxMy/Wely
+        StressBot = (N_CompOnly / A)  -  MaxMy/Wely
         if StressTop != 0 :
             ψw = StressBot / StressTop
         else:
@@ -333,10 +326,6 @@ class ColumnUtilisation:
 
 
         # #### Flange section classification (Table 5.2)
-
-        # In[30]:
-
-
         cf = (b - tw)/2 - r
         p("Outstand length =",cf,"mm" )
 
@@ -368,14 +357,9 @@ class ColumnUtilisation:
         classSection = max(classweb, classflange)
         p("The section class =", classSection)    
 
-
-        # ## Resistance of cross section (cl. 6.2)
+        # ## Resistance of cross section (cl. 6.2)-----------------------------------
 
         # #### Shear - Major axis (cl. 6.2.6)
-
-        # In[31]:
-
-
         p_title("Resistance of cross section")
         p("Vy=",Vy,"N    Design shear force" )
 
@@ -400,10 +384,6 @@ class ColumnUtilisation:
 
 
         # #### Shear - Minor axis (cl. 6.2.6)
-
-        # In[32]:
-
-
         p("Vz = ",Vz,"N    Design shear force: ")
 
         Avz = 2 * b * tf - (tw + 2 * r) * tf
@@ -427,20 +407,31 @@ class ColumnUtilisation:
 
 
         # #### Compression (cl. 6.2.4)
-
-        # In[12]:
-
-
         p("N =", N, "N    Design force")
+        NplRd = A * fy / γM0
+        p("NplRd =",  "%.1f"% NplRd, " N   Design resistance")
 
-        NcRd = NplRd = A * fy / γM0 
-        p("For class 1, 2, 3")
-        p("NcRd = NplRd =",  "%.1f"% NcRd, " N   Design resistance")
-        n = N_NcRd = N / NcRd
-        p("n = N / NcRd =",  "%.3f"% N_NcRd, InSummary=True)
-      
-        N_NcRd_ok = N_NcRd <1
-        if N_NcRd_ok:
+        N_Rd=0
+        if N>0:   #Compression (cl. 6.2.4)
+            N_Rd = NplRd
+            p("For class 1, 2, 3 in Compression")
+            p("N_Rd = NplRd =",  "%.1f"% N_Rd, " N   Design resistance")
+
+        else:
+            # ### Tension (Cl. 6.2.3) 
+            Anet = A   #no hole assumed
+            NplRd = A * fy / γM0
+            NuRd = 0.9 * Anet * fu / γM2
+            p("Section is in tension, no holes are assumed")
+            p("NuRd ",  "%.1f"% NuRd, " N   Design resistance")
+            Nt_Rd = min(NplRd, NuRd)
+            N_Rd = Nt_Rd
+
+        p("N_Rd ",  "%.1f"% N_Rd, " N   Design resistance")
+        n = N_N_Rd = abs(N) / N_Rd
+        p("n = N / N_Rd =",  "%.3f"% N_N_Rd, InSummary=True)     
+        N_N_Rd_ok = N_N_Rd <1
+        if N_N_Rd_ok:
               p("OK - The compression design resistance exceeds the design force")
         else:
             CalcNotOK = True
@@ -448,11 +439,8 @@ class ColumnUtilisation:
       
 
 
+
         # #### Bending - Major axis (cl. 6.2.5)
-
-        # In[13]:
-
-
         MyEd = max(abs(My1), abs(My2))
         p("MyEd=", "%.1f"% MyEd," N   Design bending moment")
 
@@ -483,10 +471,6 @@ class ColumnUtilisation:
 
 
         # #### Bending - Minor axis(cl. 6.2.5)
-
-        # In[14]:
-
-
         MzEd = max(abs(Mz1), abs(Mz2))
         p("MzEd=", "%.1f"% MzEd," N   Design bending moment")
         p("Wplz=", "%.1f"% Wplz, "mm3   Section modulus")
@@ -515,32 +499,31 @@ class ColumnUtilisation:
         else:
             CalcNotOK = True
             p("NOT OK")   
+        
+        #SECTION overall resistance
+        UR_section = max(Vratio,Vratioz, n, MyEd_McyRd, MzEd_MczRd)
+        p("Overall section resistance (V, M, N) ","%.3f"% UR_section, InSummary = True)
+        if UR_section<=1:
+            p("OK - Basic overall section resistance (shear, compression/tension, bending)")
+        else:
+            CalcNotOK = True
+            p("NOT OK")  
 
 
         # ### Combined bending and axial force (cl. 6.2.9)
-        # 
-
-        # In[15]:
-
-
         p_title("Combined bending and axial force")
 
-
         n = abs(N) / NplRd
-        p("n=", "%.3f"% n , "    Ratio design axial to design plastic resistance")
+        p("n=", "%.4f"% n , "    Ratio design axial to design plastic resistance")
 
         a = min(0.5, (A - 2 * b * tf) / A)
-        p("a=", "%.3f"% a , "    Ratio web area to gross area")
+        p("a=", "%.4f"% a , "    Ratio web area to gross area")
 
 
         # #### Bending and Axial force - Class 1 and 2 (cl. 6.2.9.1)
         # Class 1 and 2 cross sections.
         # 
         # Where an axial force is present an allowance should be made for its effects on the plastic moment resistance
-
-        # In[16]:
-
-
 
         URCS_1 = 99999
         URCS_2 = 99999
@@ -625,363 +608,337 @@ class ColumnUtilisation:
 
 
         # #### Bending and Axial force - Class 1 and 2 (cl. 6.2.9.2)
-
-        # In[17]:
-
-
         if classSection==3:
             p("Combined bending and axial load")
             p("The Section class is 3: EC clause 6.2.9.2 and  6.2.1(7)")
         
             p("MyEd=", "%.1f"% MyEd, "Nm     Design bending moment")
     
-            p("URCS_1 = N/NcRd + abs(My1)/McyRd + abs(Mz1)/MczRd")
-            URCS_1 = N/NcRd + abs(My1)/McyRd + abs(Mz1)/MczRd
+            p("URCS_1 = N/N_Rd + abs(My1)/McyRd + abs(Mz1)/MczRd")
+            URCS_1 = N/N_Rd + abs(My1)/McyRd + abs(Mz1)/MczRd
             p("URCS_1 = ","%.3f"% URCS_1, "Section utilisation at end 1 - Axial and bending")
 
-            URCS_2 = N/NcRd + abs(My2)/McyRd + abs(Mz2)/MczRd 
+            URCS_2 = N/N_Rd + abs(My2)/McyRd + abs(Mz2)/MczRd 
             p("URCS_2 = ","%.3f"% URCS_2, "Section utilisation at end 2 - Axial and bending")
 
 
-        # ## Buckling resistance (cl. 6.3)
+        # ## Buckling resistance (cl. 6.3)------------------------------------
 
-        # #### Buckling curves
-        # 
-        # 
+        if N>0:
 
-        # In[18]:
+            # #### Buckling curves
+            p_title("Buckling resistance (cl. 6.3)")
+            #Selecting the correct buckling curve according to Table 6.2
+            curve_yy = "NA"
+            curve_zz = "NA"
+            if (h/b) > 1.2:
+                if tf <= 40:
+                    curves_yy = ["a", "a0"]
+                    curves_zz = ["b", "a0"]
+                if (40 < tf) and (tf <= 150):    #Buckling curves h/n>1.2  (tf <= 100) not satistfied with UC1299. Assume tf<150???
+                    curves_yy = ["b","a"]
+                    curves_zz = ["c","a"]
+            if (h/b) <= 1.2:
+                if tf <= 100:
+                    curves_yy = ["b","a"]
+                    curves_zz = ["c","a"]
+                if (tf > 100):
+                    curves_yy = ["d","c"]
+                    curves_zz = ["d","c"]
 
-
-        p_title("Buckling resistance (cl. 6.3)")
-        #Selecting the correct buckling curve according to Table 6.2
-        curve_yy = "NA"
-        curve_zz = "NA"
-        if (h/b) > 1.2:
-            if tf <= 40:
-                curves_yy = ["a", "a0"]
-                curves_zz = ["b", "a0"]
-            if (40 < tf) and (tf <= 150):    #Buckling curves h/n>1.2  (tf <= 100) not satistfied with UC1299. Assume tf<150???
-                curves_yy = ["b","a"]
-                curves_zz = ["c","a"]
-        if (h/b) <= 1.2:
-            if tf <= 100:
-                curves_yy = ["b","a"]
-                curves_zz = ["c","a"]
-            if (tf > 100):
-                curves_yy = ["d","c"]
-                curves_zz = ["d","c"]
-
-        #!! Grade S420 not covered!
-        if fy<=355:                   #355 to fix mistake
-            curve_yy=curves_yy[0]
-            curve_zz=curves_zz[0]   
-        if fy>356:                    #360
-            curve_yy=curves_yy[1]
-            curve_zz=curves_zz[1] 
+            #!! Grade S420 not covered!
+            if fy<=355:                   #355 to fix mistake
+                curve_yy=curves_yy[0]
+                curve_zz=curves_zz[0]   
+            if fy>356:                    #360
+                curve_yy=curves_yy[1]
+                curve_zz=curves_zz[1] 
     
 
-        p("fy = ",fy, "N/mm2    Yield strength for buckling resistance")
-        h_b= h/b
-        p("h/b = ", "%.1f"% h_b)
-        p("tf = ", tf, "mm")
-        p("The buckling curve in yy direction:", curve_yy)
-        p("The buckling curve in zz direction:", curve_zz)
+            p("fy = ",fy, "N/mm2    Yield strength for buckling resistance")
+            h_b= h/b
+            p("h/b = ", "%.1f"% h_b)
+            p("tf = ", tf, "mm")
+            p("The buckling curve in yy direction:", curve_yy)
+            p("The buckling curve in zz direction:", curve_zz)
 
 
-        # <img src="BucklingCurve.png" alt="Table 6.2" style="width: 500px;"/>
+            # <img src="BucklingCurve.png" alt="Table 6.2" style="width: 500px;"/>
 
-        # In[19]:
-
-
-        def Table6_1(argcurve):
-            factor = -1
-            if argcurve == "a0":
-                factor = 0.13
-            elif argcurve == "a":
-                factor = 0.21
-            elif argcurve == "b":
-                factor = 0.34        
-            elif argcurve == "c":
-                factor = 0.49            
-            elif argcurve == "d":
-                factor = 0.76 
-            return factor
+            # In[19]:
 
 
-        # #### Flexural buckling - Major axis
+            def Table6_1(argcurve):
+                factor = -1
+                if argcurve == "a0":
+                    factor = 0.13
+                elif argcurve == "a":
+                    factor = 0.21
+                elif argcurve == "b":
+                    factor = 0.34        
+                elif argcurve == "c":
+                    factor = 0.49            
+                elif argcurve == "d":
+                    factor = 0.76 
+                return factor
 
-        # In[20]:
 
+            # #### Flexural buckling - Major axis
 
+            Ncry = pi**2 * E * Iy / (Ly**2)
+            p("Ncry = ", "%.0f"% Ncry," N    Elastic critical buckling force" )
 
+            λy = math.sqrt(A * fy / Ncry)
+            p("λy =", "%.3f"% λy, "    Non-dimensional slenderness")
 
-        Ncry = pi**2 * E * Iy / (Ly**2)
-        p("Ncry = ", "%.0f"% Ncry," N    Elastic critical buckling force" )
+            αy = Table6_1(curve_yy)
+            p("αy = ",αy, "    Imperfection factor (Table 6.1)")
 
-        λy = math.sqrt(A * fy / Ncry)
-        p("λy =", "%.3f"% λy, "    Non-dimensional slenderness")
+            Φy = 0.5 * (1 + αy*(λy - 0.2) + λy**2)
+            p("Φy = ", "%.3f"% Φy)
 
-        αy = Table6_1(curve_yy)
-        p("αy = ",αy, "    Imperfection factor (Table 6.1)")
+            Χy = min(1.0, 1 / (Φy + math.sqrt(Φy**2 -λy**2)))
+            p("Χy = ","%.3f"% Χy, "Reduction factor")
 
-        Φy = 0.5 * (1 + αy*(λy - 0.2) + λy**2)
-        p("Φy = ", "%.3f"% Φy)
+            NbyRd = Χy * A * fy  / γM1
+            p("NbyRd = ", "%.0f"% NbyRd, "N    Design buckling resistance (Major)" , InSummary=True)         
 
-        Χy = min(1.0, 1 / (Φy + math.sqrt(Φy**2 -λy**2)))
-        p("Χy = ","%.3f"% Χy, "Reduction factor")
-
-        NbyRd = Χy * A * fy  / γM1
-        p("NbyRd = ", "%.0f"% NbyRd, "N    Design buckling resistance (Major)" , InSummary=True)         
-
-        N_NbyRd = N / NbyRd         
-        p("N / NbyRd =", "%.3f"% N_NbyRd, "Buckling resistance - Major Axis")
+            N_NbyRd = N / NbyRd         
+            p("N / NbyRd =", "%.3f"% N_NbyRd, "Buckling resistance - Major Axis")
          
-        N_NbyRd_ok = N_NbyRd <1
-        if N_NbyRd_ok:
-              p("OK - The flexural buckling resistance exceeds the design axial load (Major axis)")
-        else:
-            CalcNotOK = True
-            p("NOT OK")  
-
-
-        # #### Flexural buckling - Minor axis
-
-        # In[21]:
-
-
-        Ncrz = pi**2 * E * Iz / (Lz**2)
-        p("Ncrz = ", "%.0f"% Ncrz," N    Elastic critical buckling force" )
-
-        λz = math.sqrt(A * fy / Ncrz)
-        p("λz =", "%.3f"% λz, "    Non-dimensional slenderness")
-
-        αz = Table6_1(curve_zz)
-        p("αz = ",αz, "    Imperfection factor (Table 6.1)")
-
-        Φz = 0.5 * (1 + αz*(λz - 0.2) + λz**2)
-        p("Φz = ", "%.3f"% Φz)
-
-        Χz = min(1.0, 1 / (Φz + math.sqrt(Φz**2 -λz**2)))
-        p("Χz = ","%.3f"% Χz, "Reduction factor")
-
-        NbzRd = Χz * A * fy  / γM1
-        p("NbzRd = ", "%.0f"% NbzRd, "N    Design buckling resistance (Minor)" , InSummary=True)         
-
-        N_NbzRd = N / NbzRd         
-        p("N / NbzRd =", "%.3f"% N_NbzRd,  "Buckling resistance - Minor Axis")
-         
-        N_NbzRd_ok = N_NbzRd <1
-        if N_NbzRd_ok:
-              p("OK - The flexural buckling resistance exceeds the design axial load (Minor axis)")
-        else:
-            CalcNotOK = True
-            p("NOT OK")  
-
-
-        # ## Torsional and torsional-flexural buckling (cl. 6.3.1.4)
-        # 
-
-        # For members with open cross-sections account should be taken of the possibility that the resistance of the member to either torsional or torsional-flexural buckling could be less that its resistance to flexural buckling
-        # 
-        # SCI:
-        # Torsional buckling, which may be critical for cruciform sections subject to axial compression
-        # Torsional-flexural buckling, which may be critical for asymmetric sections subject to axial compression.
-        # 
-
-        # ## Buckling resistance moment (cl.6.3.2.1)
-        # 
-        # Critical moment - Clark, J. W. and hill, H. N. - Lateral buckling of beams  (TBC)
-        # 
-        # Valid for DOUBLE symmetrical sections
-        # 
-        # Mcr = c1 x (π2 x E x I / Leff2) x (( (Iw/Iz) + (Leff2 x G x IT/π2 x E x Iz) + (C2 zg)2)0.5 - C2zg)
-        # 
-        # 
-        # 
-
-        # In[ ]:
-
-
-        p("All calcs valid for rolled sections or equivalent welded sections")
-        p("KLT = 1.0  Lcr_LT = Lz    Lateral torsional buckling length factor")
-
-        # Lcr_LT = KLT * Lz   (Tedds Notations)
-        Lcr_LT = Lz              #Simplied assumptions for Lateral torsional buckling Lcr_lt=Lz hence KLT=1.0
-        p("Lcr_LT = ", "%.0f"% Lcr_LT, "Effective buckling length")
-
-        if MyEd != 0:
-            Ψ = My2 / MyEd
-        else:
-            Ψ = 0
-        p("Ψ = ","%.2f"% Ψ,"    End moment factor")
-
-        #!!! Simple moment distribution: Linear
-        kc = 1 / (1.33 - 0.33 * Ψ) 
-        p("kc = ","%.3f"% kc,"    Moment distribution correction factor (Table 6.6)")
-
-        C1 = 1 / (kc**2)
-        p("C1 = ","%.2f"% C1)
-
-        g = math.sqrt(1 - (Iz / Iy))
-        p("g = ","%.3f"% g,"    Curvature factor")
-
-        Mcr = C1 * pi**2 * E * Iz * sqrt((Iw / Iz) + Lcr_LT**2 * G * IT / (pi**2 * E * Iz)) /(Lcr_LT**2 * g)
-        p("Mcr = ","%.0f"% Mcr,"    Elastic critical buckling moment")
-
-
-        # In[ ]:
-
-
-        λLT = sqrt(Wy * fy / Mcr)
-        p("λLT = ","%.3f"% λLT,"    Slenderness ratio for lateral torsional buckling")
-
-        λLT0 = 0.40
-        p("λLT = ","%.3f"% λLT0,"    Limiting slenderness ratio as per 6.3.2.3 for rolled sections")
-
-        βr = 0.75
-        p("βr = ","%.3f"% βr,"    Correction factor for rolled sections")
-
-        curve_LT=""
-        if h/b<=2:
-            curve_LT = "b"
-        if h/b > 2:
-            curve_LT = "c"
-        p("Buckling curve LT = ", curve_LT,"  (Table 6.5)")
-
-
-        αLT = Table6_1(curve_LT)
-        p("αLT = ",αLT, "    Imperfection factor (Table 6.1)")
-
-        ΦLT = 0.5 * (1 + αy*(λLT - λLT0) + βr*λy**2)
-        p("ΦLT = ", "%.3f"% ΦLT)
-
-        ΧLT = min(1.0 , 1 / λLT**2 ,  1 / (ΦLT + sqrt(ΦLT**2 -βr*λy**2)))
-        p("ΧLT = ","%.3f"% ΧLT, "Reduction factor")
-
-        f = min(1 - 0.5 * (1 - kc)* (1 - 2 * (λLT - 0.8)**2), 1)
-        p("f = ","%.3f"% f, "Modification factor")
-
-        ΧLTmod = min(ΧLT / f, 1, 1/λLT**2)
-        p("ΧLTmod = ","%.3f"% ΧLTmod, "Modified LTB reduction factor  - eq 6.58")
-
-        MbRd = ΧLTmod * Wy * fy / γM1
-        p("MbRd = ","%.0f"% MbRd, "Nmm    Design buckling resistance moment", InSummary=True)
-
-        MyEd = max(abs(My1), abs(My2))
-        p("MyEd = ","%.0f"% MyEd, "Nmm    Design bending moment")
-
-        MyEd_MbRd  = MyEd / MbRd
-        p("MyEd / MbRd = ","%.3f"% MyEd_MbRd)
-
-        MyEd_MbRd_ok = MyEd_MbRd<1
-        if MyEd_MbRd_ok:
-              p("OK - The design buckling resistance moment exceeds the maximum design moment")
-        else:
-            CalcNotOK = True
-            p("NOT OK")  
-
-
-        # ## Combined bending and axial compression (cl. 6.3.3)
-
-        # In[ ]:
-
-
-
-        NRk = A * fy 
-        MyRk = 0
-        MzRk = 0
-        if classSection==1 or classSection==2:
-            p("Class 1 or 2 cross-sections. W=Wpl")
-            MyRk = Wply * fy
-            MzRk = Wplz * fy
-        if classSection==3:
-            p("Class 3 cross-sections. W=Wel")
-            MyRk = Wely * fy
-            MzRk = Welz * fy
-        p("NRk = ","%.0f"% NRk, "N    Characteristic resistance to normal force")
-        p("MyRk = ","%.0f"% MyRk, "Nmm    Characteristic moment resistance - Major axis", InSummary=True)
-        p("MzRk = ","%.0f"% MzRk, "Nmm    Characteristic moment resistance - Minor axis", InSummary=True)
-
-
-        def Ψ(M1,M2):
-            if abs(M1)<=abs(M2):
-                if M2>=0:
-                    _Ψ = M1 / max(M2, 100)
-                else:
-                    _Ψ = M1 / M2
+            N_NbyRd_ok = N_NbyRd <1
+            if N_NbyRd_ok:
+                  p("OK - The flexural buckling resistance exceeds the design axial load (Major axis)")
             else:
-                if M1>=0:
-                    _Ψ = M2 / max(M1, 100)
+                CalcNotOK = True
+                p("NOT OK")  
+
+
+            # #### Flexural buckling - Minor axis
+            Ncrz = pi**2 * E * Iz / (Lz**2)
+            p("Ncrz = ", "%.0f"% Ncrz," N    Elastic critical buckling force" )
+
+            λz = math.sqrt(A * fy / Ncrz)
+            p("λz =", "%.3f"% λz, "    Non-dimensional slenderness")
+
+            αz = Table6_1(curve_zz)
+            p("αz = ",αz, "    Imperfection factor (Table 6.1)")
+
+            Φz = 0.5 * (1 + αz*(λz - 0.2) + λz**2)
+            p("Φz = ", "%.3f"% Φz)
+
+            Χz = min(1.0, 1 / (Φz + math.sqrt(Φz**2 -λz**2)))
+            p("Χz = ","%.3f"% Χz, "Reduction factor")
+
+            NbzRd = Χz * A * fy  / γM1
+            p("NbzRd = ", "%.0f"% NbzRd, "N    Design buckling resistance (Minor)" , InSummary=True)         
+
+            N_NbzRd = N / NbzRd         
+            p("N / NbzRd =", "%.3f"% N_NbzRd,  "Buckling resistance - Minor Axis")
+         
+            N_NbzRd_ok = N_NbzRd <1
+            if N_NbzRd_ok:
+                  p("OK - The flexural buckling resistance exceeds the design axial load (Minor axis)")
+            else:
+                CalcNotOK = True
+                p("NOT OK")  
+
+
+            # ## Torsional and torsional-flexural buckling (cl. 6.3.1.4)
+            # 
+
+            # For members with open cross-sections account should be taken of the possibility that the resistance of the member to either torsional or torsional-flexural buckling could be less that its resistance to flexural buckling
+            # 
+            # SCI:
+            # Torsional buckling, which may be critical for cruciform sections subject to axial compression
+            # Torsional-flexural buckling, which may be critical for asymmetric sections subject to axial compression.
+
+            # ## Buckling resistance moment (cl.6.3.2.1)
+            # 
+            # Critical moment - Clark, J. W. and hill, H. N. - Lateral buckling of beams  (TBC)
+            # Valid for DOUBLE symmetrical sections
+            # Mcr = c1 x (π2 x E x I / Leff2) x (( (Iw/Iz) + (Leff2 x G x IT/π2 x E x Iz) + (C2 zg)2)0.5 - C2zg)
+
+
+            p("All calcs valid for rolled sections or equivalent welded sections")
+            p("KLT = 1.0  Lcr_LT = Lz    Lateral torsional buckling length factor")
+
+            # Lcr_LT = KLT * Lz   (Tedds Notations)
+            Lcr_LT = Lz              #Simplied assumptions for Lateral torsional buckling Lcr_lt=Lz hence KLT=1.0
+            p("Lcr_LT = ", "%.0f"% Lcr_LT, "Effective buckling length")
+
+            if MyEd != 0:
+                Ψ = My2 / MyEd
+            else:
+                Ψ = 0
+            p("Ψ = ","%.2f"% Ψ,"    End moment factor")
+
+            #!!! Simple moment distribution: Linear
+            kc = 1 / (1.33 - 0.33 * Ψ) 
+            p("kc = ","%.3f"% kc,"    Moment distribution correction factor (Table 6.6)")
+
+            C1 = 1 / (kc**2)
+            p("C1 = ","%.2f"% C1)
+
+            g = math.sqrt(1 - (Iz / Iy))
+            p("g = ","%.3f"% g,"    Curvature factor")
+
+            Mcr = C1 * pi**2 * E * Iz * sqrt((Iw / Iz) + Lcr_LT**2 * G * IT / (pi**2 * E * Iz)) /(Lcr_LT**2 * g)
+            p("Mcr = ","%.0f"% Mcr,"    Elastic critical buckling moment")
+
+
+            # In[ ]:
+
+
+            λLT = sqrt(Wy * fy / Mcr)
+            p("λLT = ","%.3f"% λLT,"    Slenderness ratio for lateral torsional buckling")
+
+            λLT0 = 0.40
+            p("λLT = ","%.3f"% λLT0,"    Limiting slenderness ratio as per 6.3.2.3 for rolled sections")
+
+            βr = 0.75
+            p("βr = ","%.3f"% βr,"    Correction factor for rolled sections")
+
+            curve_LT=""
+            if h/b<=2:
+                curve_LT = "b"
+            if h/b > 2:
+                curve_LT = "c"
+            p("Buckling curve LT = ", curve_LT,"  (Table 6.5)")
+
+
+            αLT = Table6_1(curve_LT)
+            p("αLT = ",αLT, "    Imperfection factor (Table 6.1)")
+
+            ΦLT = 0.5 * (1 + αy*(λLT - λLT0) + βr*λy**2)
+            p("ΦLT = ", "%.3f"% ΦLT)
+
+            ΧLT = min(1.0 , 1 / λLT**2 ,  1 / (ΦLT + sqrt(ΦLT**2 -βr*λy**2)))
+            p("ΧLT = ","%.3f"% ΧLT, "Reduction factor")
+
+            f = min(1 - 0.5 * (1 - kc)* (1 - 2 * (λLT - 0.8)**2), 1)
+            p("f = ","%.3f"% f, "Modification factor")
+
+            ΧLTmod = min(ΧLT / f, 1, 1/λLT**2)
+            p("ΧLTmod = ","%.3f"% ΧLTmod, "Modified LTB reduction factor  - eq 6.58")
+
+            MbRd = ΧLTmod * Wy * fy / γM1
+            p("MbRd = ","%.0f"% MbRd, "Nmm    Design buckling resistance moment", InSummary=True)
+
+            MyEd = max(abs(My1), abs(My2))
+            p("MyEd = ","%.0f"% MyEd, "Nmm    Design bending moment")
+
+            MyEd_MbRd  = MyEd / MbRd
+            p("MyEd / MbRd = ","%.3f"% MyEd_MbRd)
+
+            MyEd_MbRd_ok = MyEd_MbRd<1
+            if MyEd_MbRd_ok:
+                  p("OK - The design buckling resistance moment exceeds the maximum design moment")
+            else:
+                CalcNotOK = True
+                p("NOT OK")  
+
+
+            # ## Combined bending and axial compression (cl. 6.3.3)
+
+            NRk = A * fy 
+            MyRk = 0
+            MzRk = 0
+            if classSection==1 or classSection==2:
+                p("Class 1 or 2 cross-sections. W=Wpl")
+                MyRk = Wply * fy
+                MzRk = Wplz * fy
+            if classSection==3:
+                p("Class 3 cross-sections. W=Wel")
+                MyRk = Wely * fy
+                MzRk = Welz * fy
+            p("NRk = ","%.0f"% NRk, "N    Characteristic resistance to normal force")
+            p("MyRk = ","%.0f"% MyRk, "Nmm    Characteristic moment resistance - Major axis", InSummary=True)
+            p("MzRk = ","%.0f"% MzRk, "Nmm    Characteristic moment resistance - Minor axis", InSummary=True)
+
+
+            def Ψ(M1,M2):
+                if abs(M1)<=abs(M2):
+                    if M2>=0:
+                        _Ψ = M1 / max(M2, 100)
+                    else:
+                        _Ψ = M1 / M2
                 else:
-                    _Ψ = M2 / M1
-            return _Ψ
+                    if M1>=0:
+                        _Ψ = M2 / max(M1, 100)
+                    else:
+                        _Ψ = M2 / M1
+                return _Ψ
 
-        Ψy = Ψ(My1, My2)
-        Ψz = Ψ(Mz1, Mz2)
-        ΨLT = Ψy
-        p("Ψy = ","%.3f"% Ψy, "    Moment distribution factor - Major axis")
-        p("Ψz = ","%.3f"% Ψz, "    Moment distribution factor - Major axis")
-        p("ΨLT = ","%.3f"% Ψy, "    Moment distribution factor - LTB")
+            Ψy = Ψ(My1, My2)
+            Ψz = Ψ(Mz1, Mz2)
+            ΨLT = Ψy
+            p("Ψy = ","%.3f"% Ψy, "    Moment distribution factor - Major axis")
+            p("Ψz = ","%.3f"% Ψz, "    Moment distribution factor - Major axis")
+            p("ΨLT = ","%.3f"% Ψy, "    Moment distribution factor - LTB")
 
-        Cmy = max(0.4, 0.6 + 0.4 * Ψy)
-        Cmz = max(0.4, 0.6 + 0.4 * Ψz)
-        CmLT = max(0.4, 0.6 + 0.4 * ΨLT)
-        p("Cmy = ","%.3f"% Cmy, "    Moment factor - Major axis")
-        p("Cmz = ","%.3f"% Cmz, "    Moment factor - Minor  axis")
-        p("CmLT = ","%.3f"% CmLT, "    Moment factor - LTB")
+            Cmy = max(0.4, 0.6 + 0.4 * Ψy)
+            Cmz = max(0.4, 0.6 + 0.4 * Ψz)
+            CmLT = max(0.4, 0.6 + 0.4 * ΨLT)
+            p("Cmy = ","%.3f"% Cmy, "    Moment factor - Major axis")
+            p("Cmz = ","%.3f"% Cmz, "    Moment factor - Minor  axis")
+            p("CmLT = ","%.3f"% CmLT, "    Moment factor - LTB")
 
-        p("Using Method 2 of Annex B")
-        kyy=99999
-        kyz=99999
-        kzz=99999
-        kyz=99999
-        if classSection==1 or classSection==2:
-            p("Class 1 or 2 cross-sections factors")
-            kyy = Cmy*( 1 + min(0.8, λy-0.2) * N/(Χy*NRk/γM1) )
-            kzy = 1 - min(0.1, 0.1*λz)*N / ((CmLT - 0.25)*(Χz * NRk/ γM1))      #Formula differente from EUROCODE?
-            kzz = Cmz * (1 + min(1.4, 2*λz - 0.6) * N / (Χz * NRk / γM1))
-            kyz =  0.6 * kzz  
+            p("Using Method 2 of Annex B")
+            kyy=99999
+            kyz=99999
+            kzz=99999
+            kyz=99999
+            if classSection==1 or classSection==2:
+                p("Class 1 or 2 cross-sections factors")
+                kyy = Cmy*( 1 + min(0.8, λy-0.2) * N/(Χy*NRk/γM1) )
+                kzy = 1 - min(0.1, 0.1*λz)*N / ((CmLT - 0.25)*(Χz * NRk/ γM1))      #Formula differente from EUROCODE?
+                kzz = Cmz * (1 + min(1.4, 2*λz - 0.6) * N / (Χz * NRk / γM1))
+                kyz =  0.6 * kzz  
     
-        if classSection==3 or classSection==4:
-            p("Class 3 cross-sections factors")
-            kyy = Cmy*( 1 + min(0.6, 0.6*λy) * N/(Χy*NRk/γM1) )
-            kzy = 1 - min(0.05, 0.05*λz)*N / ((CmLT - 0.25)*(Χz * NRk/ γM1))
-            kzz = Cmz * (1 + min(0.6, 0.6*λz) * N / (Χz * NRk / γM1))
-            kyz =  kzz 
+            if classSection==3 or classSection==4:
+                p("Class 3 cross-sections factors")
+                kyy = Cmy*( 1 + min(0.6, 0.6*λy) * N/(Χy*NRk/γM1) )
+                kzy = 1 - min(0.05, 0.05*λz)*N / ((CmLT - 0.25)*(Χz * NRk/ γM1))
+                kzz = Cmz * (1 + min(0.6, 0.6*λz) * N / (Χz * NRk / γM1))
+                kyz =  kzz 
     
-        p("Interactions factors:")
-        p("kyy = ","%.3f"% kyy)
-        p("kzy = ","%.3f"% kzy)
-        p("kzz = ","%.3f"% kzz)
-        p("kyz = ","%.3f"% kyz)
+            p("Interactions factors:")
+            p("kyy = ","%.3f"% kyy)
+            p("kzy = ","%.3f"% kzy)
+            p("kzz = ","%.3f"% kzz)
+            p("kyz = ","%.3f"% kyz)
 
-        URB_1 = N / (Χy*NRk / γM1) + (kyy*MyEd) / (ΧLT*MyRk / γM1) + (kyz*MzEd) / (MzRk / γM1)
-        URB_2 = N / (Χz*NRk / γM1) + (kzy*MyEd) / (ΧLT*MyRk / γM1) + (kzz*MzEd) / (MzRk / γM1)
-        p("URB_1 = ","%.3f"% URB_1 , " Section utilisation end 1: Buckling and bending" ,InSummary=True)
-        p("URB_2 = ","%.3f"% URB_2 , " Section utilisation end 2: Buckling and bending" ,InSummary=True)
+            URB_1 = N / (Χy*NRk / γM1) + (kyy*MyEd) / (ΧLT*MyRk / γM1) + (kyz*MzEd) / (MzRk / γM1)
+            URB_2 = N / (Χz*NRk / γM1) + (kzy*MyEd) / (ΧLT*MyRk / γM1) + (kzz*MzEd) / (MzRk / γM1)
+            p("URB_1 = ","%.3f"% URB_1 , " Section utilisation end 1: Buckling and bending" ,InSummary=True)
+            p("URB_2 = ","%.3f"% URB_2 , " Section utilisation end 2: Buckling and bending" ,InSummary=True)
 
-        URB_1_ok = URB_1<1
-        URB_2_ok = URB_2<1
-        if URB_1_ok and URB_2_ok:
-              p("OK - The design buckling resistance with combined bending is not exceeded")
-        else:
-            CalcNotOK = True
-            p("NOT OK")  
-                                                                        #FAIL - The buckling resistance is exceeded
+            URB_1_ok = URB_1<1
+            URB_2_ok = URB_2<1
+            if URB_1_ok and URB_2_ok:
+                  p("OK - The design buckling resistance with combined bending is not exceeded")
+            else:
+                CalcNotOK = True
+                p("NOT OK")  
+                                                                            #FAIL - The buckling resistance is exceeded
 
 
-        # ## Summary
+        # ## Summary----------------------------------------------------
 
-        # In[ ]:
+        p("Summary--------------")
+        p("Overall section resistance (V, M, N) ","%.3f"% UR_section)
         p("URCS_1 = ","%.3f"% URCS_1, "Section utilisation at end 1 - Axial and bending")
         p("URCS_2 = ","%.3f"% URCS_2, "Section utilisation at end 2 - Axial and bending")
-        p("N / NbyRd =", "%.3f"% N_NbyRd, "Buckling resistance - Major Axis")
-        p("N / NbzRd =", "%.3f"% N_NbzRd,  "Buckling resistance - Minor Axis")
-        p("URB_1 = ","%.3f"% URB_1 , " Section utilisation end 1: Buckling and bending ")
-        p("URB_2 = ","%.3f"% URB_2 , " Section utilisation end 2: Buckling and bending")
 
-        UR = max(URCS_1, URCS_2, URB_1, URB_2 )
-
+        if N>0:
+            p("N / NbyRd =", "%.3f"% N_NbyRd, "Buckling resistance - Major Axis")
+            p("N / NbzRd =", "%.3f"% N_NbzRd,  "Buckling resistance - Minor Axis")
+            p("URB_1 = ","%.3f"% URB_1 , " Section utilisation end 1: Buckling and bending ")
+            p("URB_2 = ","%.3f"% URB_2 , " Section utilisation end 2: Buckling and bending")
+            UR = max(UR_section, URCS_1, URCS_2, URB_1, URB_2 )
+        else:
+            UR = max(UR_section, URCS_1, URCS_2)
 
     
         if CalcNotValid:
@@ -994,10 +951,6 @@ class ColumnUtilisation:
         p("UR = ","%.3f"% UR, "Overall utilisation factor", InSummary=True)
         if CalcNotOK:
             p("NOT OK" , InSummary=True)
-
-
-        # In[ ]:
-
 
         #print(Summary)
         #print(AllText)

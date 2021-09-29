@@ -25,9 +25,33 @@ steel_sections_file =os.path.join(cwd, 'steel_sections.xlsx')   #list of section
 parameters_file = os.path.join(cwd, 'tedds_column_parameters.xlsx')
 steel_cost_file = os.path.join(cwd,'steel_cost.xlsx')
 steel_yield_file = os.path.join(cwd,'steel_yield.xlsx')
+steel_ultimate_file = os.path.join(cwd,'steel_ultimate.xlsx')
 steel_carbon_file= os.path.join(cwd,'steel_carbon.xlsx')
 sections_list_file =  os.path.join(cwd, 'sections_list.xlsx')   #list of sections with cost carbon etc
 solutions_pickle_file = os.path.join(cwd, 'Xy826k_short.pickle')
+
+#FILES READING functions with streamlit cache to avoid reloading
+@st.cache
+def ReadXls(FileName):
+    _df = pd.read_excel(FileName)
+    return _df
+@st.cache
+def ReadXlsWithHeader(FileName):
+    _df = pd.read_excel(FileName, header=[0,1])
+    return _df
+def ReadXlsDropHeader1(FileName):
+    _df = pd.read_excel(FileName, header=[0,1]).droplevel(1, axis=1)
+    return _df
+
+def ReadPicke(FileName):
+    _df = pd.read_pickle(FileName)
+    #with open(FileName, 'rb') as handle:
+    #    _df = pickle.load(handle)
+    return _df
+@st.cache
+def Read_Image(image_dir, file):
+    _img = Image.open(os.path.join(image_dir,file))
+    return _img
 
 #-------------------------------------------------------------------------------------------------------
 #--------------------------USER INTERFACES--------------------------------------------------------------
@@ -73,6 +97,8 @@ else :
 if plot_checkbox:
     objective_plot = st.sidebar.selectbox( 'Plot for:', objectives_list, index=3 )
 
+
+
 # Presentation
 cols = st.beta_columns(2)
 img = Image.open(os.path.join(image_dir,"AECforward-Bot"+".png"))
@@ -80,28 +106,12 @@ cols[0].image(img, width=  100)
 cols[1].title("ColBot")
 cols[1].text("Beta - by AECforward.ai")
 
+
 #st.subheader("Steel Columns Predictions for size, cost or embodied carbon")
 
 #----------------------------SOLUTION CALCULATIONS------------------------------------------------------
 
-#FILES READING functions with streamlit cache to avoid reloading
-@st.cache
-def ReadXls(FileName):
-    _df = pd.read_excel(FileName)
-    return _df
-@st.cache
-def ReadXlsWithHeader(FileName):
-    _df = pd.read_excel(FileName, header=[0,1])
-    return _df
-def ReadXlsDropHeader1(FileName):
-    _df = pd.read_excel(FileName, header=[0,1]).droplevel(1, axis=1)
-    return _df
-@st.cache
-def ReadPicke(FileName):
-    _df = pd.read_pickle(FileName)
-    #with open(FileName, 'rb') as handle:
-    #    _df = pickle.load(handle)
-    return _df
+
 
 
 #Running direct calcs Locally
@@ -112,10 +122,10 @@ parameters = ReadXls(parameters_file )
 if cost_checkbox:     
     df_sections = ReadXlsWithHeader(steel_sections_file )
     df_yield = ReadXls(steel_yield_file)
-    #
+    df_ultimate = ReadXls(steel_ultimate_file)
     df_carbon = ReadXls(steel_carbon_file)
     df_cost = Column_modules.built_cost(Basis, S355M_plus,S460J2_plus,S460M_plus, Weight_550to700,Weight_700to1400)
-    sections_withheader = Column_modules.Generate_Sections_List(df_sections, df_yield, df_cost, df_carbon)
+    sections_withheader = Column_modules.Generate_Sections_List(df_sections, df_yield, df_ultimate, df_cost, df_carbon)
     sections = sections_withheader.droplevel(1, axis=1)
 
     solutions_row = Column_modules.Column_optimisation(CASE_user, sections_withheader)
@@ -143,7 +153,9 @@ for i in range(len(objectives)):
     cols[i].subheader(objective)
     #display a bar
     try:
-        img = Image.open(os.path.join(image_dir,"bar_"+objective+".png"))
+        #img = Image.open(os.path.join(image_dir,"bar_"+objective+".png"))
+        image_file = "bar_"+objective+".png"
+        img = Read_Image(image_dir, image_file)
         cols[i].image(img, width=  200, use_column_width = False )  #use_column_width = True
     except:
         pass
@@ -256,10 +268,11 @@ if plot_checkbox:
 
 #blank lines
 for i in range(0,3):
-    st.write("")
+    st.write(" ")
 
 
 if st.button("Questions? Comments? or want full detailed calculations?", help="If you want more"):
+    
     st.markdown("Please email us at "+
                 '<a href="mailto: bots@AECforward.ai">bots@AECforward.ai</a>'+
                 " with the following reference:", unsafe_allow_html=True)
@@ -268,9 +281,20 @@ if st.button("Questions? Comments? or want full detailed calculations?", help="I
             +str(reference.to_dict(orient = 'records'))+"/"
             +str(df_cost.to_dict(orient = 'records')))
 
+if st.button("What is this about?", help="feeling lost"):
+    st.markdown("ColBot is predicting the best structural steel column (UK market). "+
+              "The column of height Ly is loaded by an axial force N and some bending moments. "+
+              "The best selected columns have different grades S355, S460 "+
+              "and different steel making processes BOF (basic oxygene furnace) or EAF (Electric Arc Furnace). "+
+              "The option weight_S355 corresponds to a baseline basic design using S355. "+
+              "The carbon option considers the embodied carbon for the production stages A1-A3. "
+              )
+    img = Read_Image(image_dir, "Column_loaded.png")
+    st.image(img, width=  200, use_column_width = False )  #use_column_width = True
+
 
 for i in range(0,10):
-    st.write("")
+    st.write(" ")
 
 st.caption("ColBot Beta v5. AECforward.ai own all intellectual property rights to ColBot. " +
           "This design has been generated automatically using a machine learning process and hence is approximate. "+
